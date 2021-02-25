@@ -229,7 +229,7 @@ func (chc *CronHPAController) updateScaleTargetRef(ctx context.Context, cronHPAV
 	return err
 }
 
-// updateHPAIfNeed see http://wiki.baidu.com/pages/viewpage.action?pageId=989171705  title 4
+// updateHPAIfNeed
 func (chc *CronHPAController) updateHPAIfNeed(ctx context.Context, cronHPAV1 *cronhpav1.CronHPA, targeSize int32) error {
 	var needUpdate bool
 	var NewTargeSize int32
