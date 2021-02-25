@@ -14,5 +14,5 @@ bash ../vendor/k8s.io/code-generator/generate-groups.sh all \
 github.com/k8s-cronhpa/pkg/client \
 github.com/k8s-cronhpa/pkg/api \
 cronhpa:v1 \
---output-base $(pwd)../../ \
+--output-base $(pwd)../../../../ \
 --go-header-file $(pwd)/boilerplate.go.txt
