@@ -1,14 +1,7 @@
 # k8s-cronhpa
-
 `定时伸缩deploy sts，兼容HPA`
 
-`TODO:`
-```
-add makefile
-add yaml
-fix request in controller
-```
-
+# example
 `CronHPA` example:
 ```
 apiVersion: apps/v1
@@ -54,6 +47,18 @@ spec:
      targetSize: 4
      runOnce: false
 ```
-`build`
-`deploy CRD`
-`deploy controller`
+
+# build
+```
+set HUB
+make build
+make docker-build
+```
+
+# deploy controller && example
+```
+kubectl apply -f crd.yaml
+kubectl apply -f cronhpa.yaml
+kubectl apply -f example.yaml
+```
+
