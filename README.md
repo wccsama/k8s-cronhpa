@@ -1,6 +1,6 @@
 # k8s-cronhpa
-`定时伸缩deploy sts，兼容HPA`
-`CronHPA scales workloads (e.g. deployment, statefulset) periodically`
+`定时伸缩deploy sts，兼容HPA` 
+`CronHPA is compatible with HPA and scales workloads (e.g. deployment, statefulset) periodically`
 
 # example
 `CronHPA` example:
