@@ -121,11 +121,10 @@ func (chc *CronHPAController) reconcileCronHPAs() {
 	}
 
 	for _, cronHPA := range cronHPAs {
-		// ctx := context.WithValue(context.Background(), request.RequestID, request.GetUUID())
 		ctx := context.Background()
 		err := chc.reconcileCronHPA(ctx, cronHPA, chc.timeNow.now())
 		if err != nil {
-			// klog.Errorf(request.CtxSprintf(ctx, "reconcileCronHPA: %v, err: %v", getCronHPAFullName(cronHPA), err))
+			klog.Errorf("reconcileCronHPA: %v, err: %v", getCronHPAFullName(cronHPA), err)
 		}
 	}
 }
@@ -140,7 +139,7 @@ func (chc *CronHPAController) reconcileCronHPA(ctx context.Context, cronHPAOrigi
 	// get exclude date
 	excludeTimes, err := getExcludeTimes(latestSchedledTime, now, cronHPA.Spec.ExcludeDates, cronHPA.Spec.StartingDeadlineSeconds)
 	if err != nil {
-		// klog.Errorf(request.CtxSprintf(ctx, "getExcludeTimes err: %v", err))
+		klog.Errorf("getExcludeTimes err: %v", err)
 		return err
 	}
 
@@ -148,8 +147,8 @@ func (chc *CronHPAController) reconcileCronHPA(ctx context.Context, cronHPAOrigi
 	for _, cron := range cronHPA.Spec.Crons {
 		// check cron name
 		if _, ok := checkName[cron.Name]; ok {
-			//chc.eventRecorder.Eventf(cronHPA, v1.EventTypeWarning, request.CtxSprintf(ctx, "cronName duplication: %v", cron.Name), "")
-			//klog.Errorf(request.CtxSprintf(ctx, "cronName duplication name: %v", cron.Name))
+			chc.eventRecorder.Eventf(cronHPA, v1.EventTypeWarning, fmt.Sprintf("cronName duplication: %v", cron.Name), "")
+			klog.Errorf("cronName duplication name: %v", cron.Name)
 			return fmt.Errorf("cronName duplication name: %v", cron.Name)
 		} else {
 			checkName[cron.Name] = 1
@@ -163,7 +162,7 @@ func (chc *CronHPAController) reconcileCronHPA(ctx context.Context, cronHPAOrigi
 		// get job's time
 		times, err := getRecentUnmetScheduleTimes(latestSchedledTime, now, cron.Schedule, cronHPA.Spec.StartingDeadlineSeconds)
 		if err != nil {
-			//klog.Errorf(request.CtxSprintf(ctx, "getRecentUnmetScheduleTimes err: %v", err))
+			klog.Errorf("getRecentUnmetScheduleTimes err: %v", err)
 			return err
 		}
 
@@ -174,15 +173,15 @@ func (chc *CronHPAController) reconcileCronHPA(ctx context.Context, cronHPAOrigi
 
 		// filter with exclude time
 		if shoudFilterTimesWithExcludeTimes(excludeTimes, times[len(times)-1]) {
-			//klog.Infof(request.CtxSprintf(ctx, "[ExcludeDates] try to excludeDates: %v, latestSchedledTime: %v, schedule: %v, scheduleTime: %v",
-			//	excludeTimes, latestSchedledTime, cron.Schedule, times[len(times)-1]))
+			klog.Infof("[ExcludeDates] try to excludeDates: %v, latestSchedledTime: %v, schedule: %v, scheduleTime: %v",
+				excludeTimes, latestSchedledTime, cron.Schedule, times[len(times)-1])
 			continue
 		}
 
 		// log some helpful message
-		//klog.Infof(request.CtxSprintf(ctx, "[Schedule] for %s of cronhpa %v latestSchedledTime: %v", cron.Schedule, times[len(times)-1], latestSchedledTime))
-		//klog.Infof(request.CtxSprintf(ctx, "[Plan] %v can be scaled to replicas %v for schedule %v", getCronHPAFullName(cronHPA),
-		// cron.TargeSize, cron.Schedule))
+		klog.Infof("[Schedule] for %s of cronhpa %v latestSchedledTime: %v", cron.Schedule, times[len(times)-1], latestSchedledTime)
+		klog.Infof("[Plan] %v can be scaled to replicas %v for schedule %v", getCronHPAFullName(cronHPA),
+			cron.TargeSize, cron.Schedule)
 		// add task to batch
 		cronJobBatch = append(cronJobBatch, cron)
 	}
@@ -190,12 +189,12 @@ func (chc *CronHPAController) reconcileCronHPA(ctx context.Context, cronHPAOrigi
 	if len(cronJobBatch) > 0 {
 		// sort batch, big to small
 		sort.Slice(cronJobBatch, func(i, j int) bool { return cronJobBatch[i].TargeSize > cronJobBatch[j].TargeSize })
-		//klog.Infof(request.CtxSprintf(ctx, "[Scaled] %v can be scale to replicas %v", getCronHPAFullName(cronHPA),
-		//	cronJobBatch[0].TargeSize))
+		klog.Infof("[Scaled] %v can be scale to replicas %v", getCronHPAFullName(cronHPA),
+			cronJobBatch[0].TargeSize)
 
 		// multiple job choose the highest replicas one
 		if err := chc.updateScaleTargetRef(ctx, cronHPA, cronJobBatch[0].TargeSize); err != nil {
-			//	klog.Errorf(request.CtxSprintf(ctx, "updateScaleTargetRef Failed to scale %v to replicas %v: %v", getCronHPAFullName(cronHPA), cronJobBatch[0], err))
+			klog.Errorf("updateScaleTargetRef Failed to scale %v to replicas %v: %v", getCronHPAFullName(cronHPA), cronJobBatch[0], err)
 			return err
 		}
 
@@ -209,9 +208,9 @@ func (chc *CronHPAController) reconcileCronHPA(ctx context.Context, cronHPAOrigi
 				RunOnce: cronJobBatch[0].RunOnce})
 
 		if _, err := chc.cronHPAClient.CronHPAs(cronHPA.Namespace).Update(context.TODO(), cronHPA, metav1.UpdateOptions{}); err != nil {
-			// chc.eventRecorder.Eventf(cronHPA, v1.EventTypeWarning, request.CtxSprintf(ctx, "FailedUpdateStatus cronHPA: %v", getCronHPAFullName(cronHPA)), err.Error())
-			//	klog.Errorf(request.CtxSprintf(ctx, "Failed to update cronhpa %v's LastScheduleTime(%+v): %v",
-			//		getCronHPAFullName(cronHPA), cronHPA.Status.LastScheduleTime.Time, err))
+			chc.eventRecorder.Eventf(cronHPA, v1.EventTypeWarning, fmt.Sprintf("FailedUpdateStatus cronHPA: %v", getCronHPAFullName(cronHPA)), err.Error())
+			klog.Errorf("Failed to update cronhpa %v's LastScheduleTime(%+v): %v",
+				getCronHPAFullName(cronHPA), cronHPA.Status.LastScheduleTime.Time, err)
 			return err
 		}
 	}
@@ -261,7 +260,7 @@ func (chc *CronHPAController) updateHPAIfNeed(ctx context.Context, cronHPAV1 *cr
 		_, err := chc.hpaNamespacer.HorizontalPodAutoscalers(cronHPAV1.Namespace).Update(context.TODO(), hpa, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("Update HPA min/max err. HPA: %v err: %v", hpa, err)
-			//chc.eventRecorder.Eventf(cronHPAV1, v1.EventTypeWarning, request.CtxSprintf(ctx, "FailedUpdateStatus HPA: %v/%v", hpa.Namespace, hpa.Name), err.Error())
+			chc.eventRecorder.Eventf(cronHPAV1, v1.EventTypeWarning, fmt.Sprintf("FailedUpdateStatus HPA: %v/%v", hpa.Namespace, hpa.Name), err.Error())
 			return err
 		}
 		chc.eventRecorder.Eventf(cronHPAV1, v1.EventTypeNormal, "SuccessfulUpdateHPA", fmt.Sprintf("New min/max: %v/%v", *hpa.Spec.MinReplicas, hpa.Spec.MaxReplicas))
@@ -292,7 +291,7 @@ func (chc *CronHPAController) tryToScale(ctx context.Context, cronHPAV1 *cronhpa
 	reference := fmt.Sprintf("%s/%s/%s", scaleTargetRef.Kind, cronHPAV1.Namespace, scaleTargetRef.Name)
 	targetGV, err := schema.ParseGroupVersion(scaleTargetRef.APIVersion)
 	if err != nil {
-		//klog.Errorf(request.CtxSprintf(ctx, "failed to parseGroupVersion err: %v, cronHPAV1: %v", err, getCronHPAFullName(cronHPAV1)))
+		klog.Errorf("failed to parseGroupVersion err: %v, cronHPAV1: %v", err, getCronHPAFullName(cronHPAV1))
 		return err
 	}
 
@@ -303,30 +302,30 @@ func (chc *CronHPAController) tryToScale(ctx context.Context, cronHPAV1 *cronhpa
 
 	mappings, err := chc.mapper.RESTMappings(targetGK)
 	if err != nil {
-		//klog.Errorf(request.CtxSprintf(ctx, "failed to RESTMappings for targetGK: %v err: %v, cronHPAV1: %v", targetGK, err, getCronHPAFullName(cronHPAV1)))
+		klog.Errorf("failed to RESTMappings for targetGK: %v err: %v, cronHPAV1: %v", targetGK, err, getCronHPAFullName(cronHPAV1))
 		return err
 	}
 
 	scale, targetGR, err := chc.scaleForResourceMappings(cronHPAV1.Namespace, scaleTargetRef.Name, mappings)
 	if err != nil {
-		//	klog.Errorf(request.CtxSprintf(ctx, "failed to scaleForResourceMappings err: %v, cronHPAV1: %v", err, getCronHPAFullName(cronHPAV1)))
+		klog.Errorf("failed to scaleForResourceMappings err: %v, cronHPAV1: %v", err, getCronHPAFullName(cronHPAV1))
 		return err
 	}
 
 	if scale.Spec.Replicas != targeSize {
-		// oldReplicas := scale.Spec.Replicas
+		oldReplicas := scale.Spec.Replicas
 		scale.Spec.Replicas = targeSize
 		_, err = chc.scaleNamespacer.Scales(cronHPAV1.Namespace).Update(context.TODO(), targetGR, scale, metav1.UpdateOptions{})
 		if err != nil {
-			//	klog.Errorf(request.CtxSprintf(ctx, "failed to scales err: %v, cronHPAV1: %v", err, getCronHPAFullName(cronHPAV1)))
-			// chc.eventRecorder.Eventf(cronHPAV1, v1.EventTypeWarning, request.CtxSprintf(ctx, "failed to scale %v cronHPAV1: %v", reference, cronHPAV1), err.Error())
+			klog.Errorf("failed to scales err: %v, cronHPAV1: %v", err, getCronHPAFullName(cronHPAV1))
+			chc.eventRecorder.Eventf(cronHPAV1, v1.EventTypeWarning, fmt.Sprintf("failed to scale %v cronHPAV1: %v", reference, cronHPAV1), err.Error())
 			return fmt.Errorf("failed to rescale %s: %v", reference, err)
 		}
 		chc.eventRecorder.Eventf(cronHPAV1, v1.EventTypeNormal, "SuccessfulRescale", "New size: %d", targeSize)
-		//klog.Infof(request.CtxSprintf(ctx, "Successful scale of %s, old size: %d, new size: %d",
-		//	getCronHPAFullName(cronHPAV1), oldReplicas, targeSize))
+		klog.Infof("Successful scale of %s, old size: %d, new size: %d",
+			getCronHPAFullName(cronHPAV1), oldReplicas, targeSize)
 	} else {
-		//	klog.Infof(request.CtxSprintf(ctx, "No need to scale %s to %v, same replicas", getCronHPAFullName(cronHPAV1), targeSize))
+		klog.Infof("No need to scale %s to %v, same replicas", getCronHPAFullName(cronHPAV1), targeSize)
 	}
 
 	return nil
