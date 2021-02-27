@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cronhpa-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cronhpa-test
+  template:
+    metadata:
+      name: cronhpa-test
+      labels:
+        name: cronhpa-test
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+          - containerPort: 80
+---
+apiVersion: wcc.io/v1
+kind: CronHPA
+metadata:
+  name: cronhpa-sample
+  namespace: default
+spec:
+   scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: cronhpa-test
+   excludeDates:
+     - "*/2 * * * *"
+   crons:
+   - name: "scale-down"
+     schedule: "*/1 * * * *"
+     targetSize: 2
+     runOnce: true
+   - name: "scale-up"
+     schedule: "*/2 * * * *"
+     targetSize: 3
+     runOnce: false

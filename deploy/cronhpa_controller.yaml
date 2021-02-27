@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wcc-cronhpa-controller
+  namespace: kube-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: wcc-cronhpa-controller
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: wcc-cronhpa-controller
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: wcc-cronhpa-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wcc-cronhpa-controller
+  namespace: kube-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - deployments
+  - statefulsets
+  - events
+  verbs:
+  - '*'
+- apiGroups: ["extensions", "apps"]
+  resources:
+  - deployments
+  - deployments/scale
+  - statefulsets
+  - replicasets
+  verbs:
+  - '*'
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - wcc.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cron-hpa-controller
+  namespace: kube-system
+  labels:
+    app: cron-hpa-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cron-hpa-controller
+  template:
+    metadata:
+      labels:
+        app: cron-hpa-controller
+    spec:
+      serviceAccountName: wcc-cronhpa-controller
+      containers:
+        - name: cron-hpa-controller
+          image: wcc-cronhpa-controller:latest
+          imagePullPolicy: Always
+          command:
+            - ./usr/local/bin/wcc-cronhpa-controller
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: 200m
+            requests:
+              memory: 200Mi
+              cpu: 100m
+          volumeMounts:
+            - name: host-time
+              mountPath: /etc/localtime
+              readOnly: true
+      volumes:
+        - name: host-time
+          hostPath:
+            path: /etc/localtime
