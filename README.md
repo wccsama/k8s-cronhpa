@@ -1,5 +1,6 @@
 # k8s-cronhpa
 `定时伸缩deploy sts，兼容HPA`
+`CronHPA scales workloads (e.g. deployment, statefulset) periodically`
 
 # example
 `CronHPA` example:
@@ -46,6 +47,7 @@ spec:
      schedule: "*/3 * * * *"
      targetSize: 4
      runOnce: false
+     # cron https://en.wikipedia.org/wiki/Cron
 ```
 
 # build
